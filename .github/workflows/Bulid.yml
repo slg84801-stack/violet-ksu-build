@@ -39,7 +39,7 @@ jobs:
       - name: 4. Set Toolchain (Proton Clang)
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
-
+    
       - name: 5. Build Kernel
         working-directory: kernel
         run: |
@@ -49,10 +49,14 @@ jobs:
           export KBUILD_BUILD_USER="Gemini"
           export KBUILD_BUILD_HOST="Android-Builder"
           
-          # Fix: Use 'yes' to auto-confirm new config options
+          # Fix: Sabse pehle defconfig set karo
           make O=out violet_user_defconfig
-          yes "" | make O=out oldconfig
           
+          # Fix: Naye options ko automatically 'No' ya 'Default' set karne ka sabse powerfull tareeka
+          make O=out KCONFIG_ALLCONFIG=arch/arm64/configs/violet_user_defconfig allnoconfig
+          make O=out olddefconfig
+          
+          # Ab main build shuru karo
           make -j$(nproc --all) O=out \
                       CC=clang \
                       CROSS_COMPILE=aarch64-linux-gnu- \
