@@ -13,19 +13,21 @@ jobs:
       - name: 2. Install Build Essentials
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc build-essential flex bison libssl-dev libelf-dev clang lld llvm zip curl
+          sudo apt-get install -y bc build-essential flex bison libssl-dev libelf-dev clang lld llvm zip curl wget
 
       - name: 3. Setup KernelSU Next & SusFS
         working-directory: kernel
         run: |
-          # KernelSU Next Setup (Using GitHub to avoid 404/GitLab errors)
+          # KernelSU Next Setup (Direct Download)
           git clone https://github.com/rifsxd/KernelSU-Next kernelsu_repo
           cp -r kernelsu_repo/kernel drivers/kernelsu
           
-          # SusFS Setup (Using GitHub mirror to avoid GitLab Login error)
-          git clone https://github.com/sidex15/susfs4linux.git -b gki-android14-5.15 susfs_src
-          cp susfs_src/kernel/include/linux/susfs.h include/linux/
-          cp susfs_src/kernel/fs/susfs.c fs/
+          # SusFS Setup (Using Wget to avoid Git Login Errors)
+          # Hum direct zip download kar rahe hain taaki 'Username' wala error na aaye
+          wget https://github.com/sidex15/susfs4linux/archive/refs/heads/gki-android14-5.15.zip -O susfs.zip
+          unzip susfs.zip
+          cp susfs4linux-gki-android14-5.15/kernel/include/linux/susfs.h include/linux/
+          cp susfs4linux-gki-android14-5.15/kernel/fs/susfs.c fs/
           
           # Add to Build System
           echo "obj-y += susfs.o" >> fs/Makefile
@@ -60,7 +62,6 @@ jobs:
       - name: 6. Setup AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
-          # Check for image file (Violet kernels can produce different names)
           if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
           elif [ -f kernel/out/arch/arm64/boot/Image.gz ]; then
