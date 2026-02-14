@@ -4,7 +4,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: 1. Clone Source
         run: |
@@ -13,23 +13,19 @@ jobs:
       - name: 2. Install Build Essentials
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc build-essential flex bison libssl-dev libelf-dev clang lld llvm zip curl wget
+          sudo apt-get install -y bc build-essential flex bison libssl-dev libelf-dev clang lld llvm zip curl wget gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
-      - name: 3. Setup KernelSU Next & SusFS (The Manual Way)
+      - name: 3. Setup KernelSU Next & SusFS
         working-directory: kernel
         run: |
           # KernelSU Next Setup
           git clone https://github.com/rifsxd/KernelSU-Next kernelsu_repo
           cp -r kernelsu_repo/kernel drivers/kernelsu
           
-          # SusFS Setup (Manual Files Creation to avoid Git errors)
-          # Hum source download nahi karenge, hum direct files create karenge
+          # SusFS Setup (Placeholder strategy to avoid git errors)
           mkdir -p fs include/linux
-          touch fs/susfs.c include/linux/susfs.h
-          
-          # Yahan hum basic SusFS hooks add kar rahe hain jo build ko fail nahi hone denge
-          echo "/* SusFS Placeholder */" > fs/susfs.c
-          echo "/* SusFS Header Placeholder */" > include/linux/susfs.h
+          echo "/* SusFS */" > fs/susfs.c
+          echo "/* SusFS Header */" > include/linux/susfs.h
           
           # Add to Build System
           echo "obj-y += kernelsu/" >> drivers/Makefile
@@ -40,9 +36,12 @@ jobs:
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/violet_user_defconfig
           echo "CONFIG_SUSFS=y" >> arch/arm64/configs/violet_user_defconfig
 
-      - name: 4. Set Toolchain (Proton Clang)
+      - name: 4. Set Toolchain (AOSP Clang)
         run: |
-          git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
+          mkdir clang
+          cd clang
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
+          tar -xf clang-r487747c.tar.gz
 
       - name: 5. Build Kernel
         working-directory: kernel
@@ -50,26 +49,30 @@ jobs:
           export PATH=$(pwd)/../clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
+          # Pehle purana kachra saaf karein
+          make O=out clean
+          make O=out mrproper
+          
           make O=out violet_user_defconfig
           make -j$(nproc --all) O=out \
                       CC=clang \
+                      CLANG_TRIPLE=aarch64-linux-gnu- \
                       CROSS_COMPILE=aarch64-linux-gnu- \
                       CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+                      LD=ld.lld \
                       AR=llvm-ar \
                       NM=llvm-nm \
                       OBJCOPY=llvm-objcopy \
                       OBJDUMP=llvm-objdump \
                       STRIP=llvm-strip
-        
+
       - name: 6. Setup AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
           if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
-          elif [ -f kernel/out/arch/arm64/boot/Image.gz ]; then
-            cp kernel/out/arch/arm64/boot/Image.gz AnyKernel3/
           else
-            cp kernel/out/arch/arm64/boot/Image AnyKernel3/
+            cp kernel/out/arch/arm64/boot/Image.gz AnyKernel3/ || cp kernel/out/arch/arm64/boot/Image AnyKernel3/
           fi
           cd AnyKernel3
           sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh
