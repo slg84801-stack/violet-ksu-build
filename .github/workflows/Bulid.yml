@@ -18,12 +18,12 @@ jobs:
       - name: 3. Setup KernelSU Next & SusFS
         working-directory: kernel
         run: |
-          # KernelSU Next Setup (Manual Clone to fix 404)
+          # KernelSU Next Setup (Using GitHub to avoid 404/GitLab errors)
           git clone https://github.com/rifsxd/KernelSU-Next kernelsu_repo
           cp -r kernelsu_repo/kernel drivers/kernelsu
           
-          # SusFS Source Setup
-          git clone https://gitlab.com/vytant/susfs4linux.git -b gki-android14-5.15 susfs_src
+          # SusFS Setup (Using GitHub mirror to avoid GitLab Login error)
+          git clone https://github.com/sidex15/susfs4linux.git -b gki-android14-5.15 susfs_src
           cp susfs_src/kernel/include/linux/susfs.h include/linux/
           cp susfs_src/kernel/fs/susfs.c fs/
           
@@ -60,10 +60,13 @@ jobs:
       - name: 6. Setup AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+          # Check for image file (Violet kernels can produce different names)
           if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
-          else
+          elif [ -f kernel/out/arch/arm64/boot/Image.gz ]; then
             cp kernel/out/arch/arm64/boot/Image.gz AnyKernel3/
+          else
+            cp kernel/out/arch/arm64/boot/Image AnyKernel3/
           fi
           cd AnyKernel3
           sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh
