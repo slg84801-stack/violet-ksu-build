@@ -1,0 +1,63 @@
+name: Build Violet Kernel with KSU Next & AnyKernel3
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+        with:
+          repository: Joker-V2/kernel_xiaomi_violet
+          ref: master
+          path: kernel
+
+      - name: Install Build Essentials
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc build-essential flex bison libssl-dev libelf-dev clang lld llvm zip
+
+      - name: Setup KernelSU Next
+        working-directory: kernel
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/main/kernel/setup.sh" | bash -
+          echo "obj-y += kernelsu/" >> drivers/Makefile
+
+      - name: Set Toolchain (Proton Clang)
+        run: |
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
+
+      - name: Build Kernel
+        working-directory: kernel
+        run: |
+          export PATH=$(pwd)/../clang/bin:$PATH
+          export ARCH=arm64
+          export SUBARCH=arm64
+          make O=out violet_user_defconfig
+          make -j$(nproc --all) O=out \
+                      CC=clang \
+                      CROSS_COMPILE=aarch64-linux-gnu- \
+                      CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+                      AR=llvm-ar \
+                      NM=llvm-nm \
+                      OBJCOPY=llvm-objcopy \
+                      OBJDUMP=llvm-objdump \
+                      STRIP=llvm-strip
+        
+      - name: Setup AnyKernel3
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+          cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+          cd AnyKernel3
+          # Violet ke liye anykernel.sh update karna
+          sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh
+          sed -i 's/block=\/dev\/block\/td\/by-name\/boot/block=\/dev\/block\/bootdevice\/by-name\/boot/g' anykernel.sh
+          zip -r9 ../Violet-KSU-Next-Flashable.zip * -x .git README.md *placeholder
+
+      - name: Upload Flashable Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: Violet-KSU-Next-Kernel
+          path: Violet-KSU-Next-Flashable.zip
+          
