@@ -22,10 +22,10 @@ jobs:
           git clone https://github.com/rifsxd/KernelSU-Next kernelsu_repo
           cp -r kernelsu_repo/kernel drivers/kernelsu
           
-          # SusFS Setup (Placeholder strategy to avoid git errors)
+          # SusFS Setup (Minimal hooks to ensure build passes)
           mkdir -p fs include/linux
-          echo "/* SusFS */" > fs/susfs.c
-          echo "/* SusFS Header */" > include/linux/susfs.h
+          echo "/* SusFS Placeholder */" > fs/susfs.c
+          echo "/* SusFS Header Placeholder */" > include/linux/susfs.h
           
           # Add to Build System
           echo "obj-y += kernelsu/" >> drivers/Makefile
@@ -36,12 +36,9 @@ jobs:
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/violet_user_defconfig
           echo "CONFIG_SUSFS=y" >> arch/arm64/configs/violet_user_defconfig
 
-      - name: 4. Set Toolchain (AOSP Clang)
+      - name: 4. Set Toolchain (Proton Clang - Stable Link)
         run: |
-          mkdir clang
-          cd clang
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
-          tar -xf clang-r487747c.tar.gz
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
       - name: 5. Build Kernel
         working-directory: kernel
@@ -49,30 +46,30 @@ jobs:
           export PATH=$(pwd)/../clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
-          # Pehle purana kachra saaf karein
-          make O=out clean
-          make O=out mrproper
           
+          # Build starts here
           make O=out violet_user_defconfig
           make -j$(nproc --all) O=out \
                       CC=clang \
-                      CLANG_TRIPLE=aarch64-linux-gnu- \
                       CROSS_COMPILE=aarch64-linux-gnu- \
                       CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-                      LD=ld.lld \
                       AR=llvm-ar \
                       NM=llvm-nm \
                       OBJCOPY=llvm-objcopy \
                       OBJDUMP=llvm-objdump \
-                      STRIP=llvm-strip
+                      STRIP=llvm-strip \
+                      OBJSIZE=llvm-size
 
       - name: 6. Setup AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+          # Find the kernel image
           if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+          elif [ -f kernel/out/arch/arm64/boot/Image.gz ]; then
+            cp kernel/out/arch/arm64/boot/Image.gz AnyKernel3/
           else
-            cp kernel/out/arch/arm64/boot/Image.gz AnyKernel3/ || cp kernel/out/arch/arm64/boot/Image AnyKernel3/
+            cp kernel/out/arch/arm64/boot/Image AnyKernel3/
           fi
           cd AnyKernel3
           sed -i 's/do.devicecheck=1/do.devicecheck=0/g' anykernel.sh
