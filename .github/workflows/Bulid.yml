@@ -22,10 +22,10 @@ jobs:
           git clone https://github.com/rifsxd/KernelSU-Next kernelsu_repo
           cp -r kernelsu_repo/kernel drivers/kernelsu
           
-          # SusFS Setup (Minimal hooks to ensure build passes)
+          # SusFS Setup (Placeholder)
           mkdir -p fs include/linux
-          echo "/* SusFS Placeholder */" > fs/susfs.c
-          echo "/* SusFS Header Placeholder */" > include/linux/susfs.h
+          echo "/* SusFS */" > fs/susfs.c
+          echo "/* SusFS Header */" > include/linux/susfs.h
           
           # Add to Build System
           echo "obj-y += kernelsu/" >> drivers/Makefile
@@ -36,7 +36,7 @@ jobs:
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/violet_user_defconfig
           echo "CONFIG_SUSFS=y" >> arch/arm64/configs/violet_user_defconfig
 
-      - name: 4. Set Toolchain (Proton Clang - Stable Link)
+      - name: 4. Set Toolchain (Proton Clang)
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
@@ -46,9 +46,13 @@ jobs:
           export PATH=$(pwd)/../clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
+          export KBUILD_BUILD_USER="Gemini"
+          export KBUILD_BUILD_HOST="Android-Builder"
           
-          # Build starts here
+          # Fix: Use 'yes' to auto-confirm new config options
           make O=out violet_user_defconfig
+          yes "" | make O=out oldconfig
+          
           make -j$(nproc --all) O=out \
                       CC=clang \
                       CROSS_COMPILE=aarch64-linux-gnu- \
@@ -57,13 +61,12 @@ jobs:
                       NM=llvm-nm \
                       OBJCOPY=llvm-objcopy \
                       OBJDUMP=llvm-objdump \
-                      STRIP=llvm-strip \
-                      OBJSIZE=llvm-size
+                      STRIP=llvm-strip
 
       - name: 6. Setup AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
-          # Find the kernel image
+          # Find kernel image
           if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
           elif [ -f kernel/out/arch/arm64/boot/Image.gz ]; then
