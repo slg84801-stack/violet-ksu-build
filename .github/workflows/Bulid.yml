@@ -40,7 +40,7 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-      - name: 5. Build Kernel
+      - name: 5. Build Kernel (The Hard Way)
         working-directory: kernel
         run: |
           export PATH=$(pwd)/../clang/bin:$PATH
@@ -49,13 +49,17 @@ jobs:
           export KBUILD_BUILD_USER="Gemini"
           export KBUILD_BUILD_HOST="Android-Builder"
           
-          # Fix for the loop error: Force overwrite everything
+          # Force set the defconfig
           make O=out violet_user_defconfig
           
-          # Advanced Flag to kill interactive prompts
-          yes "" | make O=out KCONFIG_NOSILENTUPDATE=1 oldconfig || make O=out olddefconfig
+          # THE FIX: Bypass interactive prompts by creating an auto-response script
+          # Hum 'yes' command ka use karenge taaki har sawaal ka answer 'Enter' ho jaye
+          yes "" | make O=out oldconfig
           
-          # Main compilation
+          # If still stuck, force use olddefconfig which sets defaults automatically
+          make O=out olddefconfig
+          
+          # Actual Compilation with extra flags to prevent stopping
           make -j$(nproc --all) O=out \
                       CC=clang \
                       CROSS_COMPILE=aarch64-linux-gnu- \
@@ -64,7 +68,8 @@ jobs:
                       NM=llvm-nm \
                       OBJCOPY=llvm-objcopy \
                       OBJDUMP=llvm-objdump \
-                      STRIP=llvm-strip
+                      STRIP=llvm-strip \
+                      KCONFIG_NOSILENTUPDATE=1
 
       - name: 6. Setup AnyKernel3
         run: |
